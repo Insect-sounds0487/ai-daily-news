@@ -6,6 +6,7 @@ import { JiqizhixinScraper } from './scrapers/jiqizhixin';
 import { GitHubTrendingScraper } from './scrapers/github';
 import { DeepseekSummarizer } from './summarizer/deepseek';
 import { PdfGenerator } from './pdf/generator';
+import { pushToWechat } from './pusher';
 import type { ArxivPaper, HNStory, JiqizhixinArticle, GitHubRepo } from './types';
 import fs from 'fs/promises';
 import path from 'path';
@@ -107,6 +108,9 @@ async function main() {
   console.log('\n' + '='.repeat(50));
   console.log(`完成！日报已保存至 ${reportsDir}`);
   console.log('='.repeat(50));
+
+  // ============ 4. 推送到微信 ============
+  await pushToWechat(`AI行业日报 | ${date}`, reportMarkdown);
 }
 
 main().catch((err) => {
