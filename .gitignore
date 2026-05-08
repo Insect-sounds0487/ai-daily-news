@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+reports/*.pdf
+ms-playwright/
+.playwright-mcp/
+fonts/
+*.txt
+*.log
+.DS_Store
+.claude/
