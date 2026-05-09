@@ -1,6 +1,18 @@
 const PUSHPLUS_API = 'https://www.pushplus.plus/send';
 const WECOM_API = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send';
 
+function truncateToBytes(str: string, maxBytes: number): string {
+  const encoder = new TextEncoder();
+  if (encoder.encode(str).length <= maxBytes) return str;
+  let lo = 0, hi = str.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (encoder.encode(str.substring(0, mid)).length <= maxBytes) lo = mid;
+    else hi = mid - 1;
+  }
+  return str.substring(0, lo);
+}
+
 export async function pushToWechat(title: string, content: string): Promise<void> {
   // 企业微信机器人 (优先)
   const wecomKey = process.env.WECOM_WEBHOOK_KEY;
@@ -13,7 +25,7 @@ export async function pushToWechat(title: string, content: string): Promise<void
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           msgtype: 'markdown',
-          markdown: { content: wecomContent.substring(0, 4096) },
+          markdown: { content: truncateToBytes(wecomContent, 4096) },
         }),
       });
       const data = await res.json();
