@@ -2,6 +2,8 @@ node_modules/
 dist/
 .env
 reports/*.pdf
+reports/.cache.json
+reports/push-history.json
 ms-playwright/
 .playwright-mcp/
 fonts/

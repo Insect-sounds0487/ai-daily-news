@@ -7,14 +7,18 @@ import { GitHubTrendingScraper } from './scrapers/github';
 import { DeepseekSummarizer } from './summarizer/deepseek';
 import { PdfGenerator } from './pdf/generator';
 import { pushToWechat } from './pusher';
+import { loadCache, saveCache, dedupItems } from './cache';
 import type { ArxivPaper, HNStory, JiqizhixinArticle, GitHubRepo } from './types';
+import type { HealthCheckResult } from './types';
 import fs from 'fs/promises';
 import path from 'path';
 
 function parseArgs(): { mode: ReportMode; skipScrape: boolean; skipPdf: boolean; skipGit: boolean } {
   const args = process.argv.slice(2);
+  const modeArg = args.find(a => a.startsWith('--mode='));
+  const mode = modeArg ? modeArg.split('=')[1] as ReportMode : CONFIG.REPORT_MODE;
   return {
-    mode: CONFIG.REPORT_MODE,
+    mode: REPORT_MODES.includes(mode) ? mode : 'standard',
     skipScrape: args.includes('--skip-scrape'),
     skipPdf: args.includes('--skip-pdf'),
     skipGit: args.includes('--skip-git'),
@@ -26,10 +30,25 @@ async function main() {
   const date = new Date().toISOString().split('T')[0];
   const modeLabel = CONFIG.MODE_PARAMS[mode].label;
 
+  // 加载去重缓存
+  const cache = await loadCache(CONFIG.CACHE_FILE);
+
   console.log('='.repeat(50));
   console.log(`AI 行业每日大事总结 — ${modeLabel}`);
   console.log(`日期: ${date}`);
   console.log('='.repeat(50));
+
+  // ============ 0. 健康检查 ============
+  if (!skipScrape) {
+    console.log('\n--- 阶段 0/4: 源健康检查 ---');
+    const scrapers = [new ArxivScraper(), new HackerNewsScraper(), new JiqizhixinScraper(), new GitHubTrendingScraper()];
+    const healthResults = await Promise.allSettled(scrapers.map(s => s.isHealthy()));
+    for (const r of healthResults) {
+      if (r.status === 'fulfilled' && !r.value.healthy) {
+        console.warn(`[健康检查] ${r.value.sourceName} 不可达: ${r.value.error}`);
+      }
+    }
+  }
 
   // ============ 1. 抓取数据 ============
   let arxivPapers: ArxivPaper[] = [];
@@ -59,6 +78,27 @@ async function main() {
     if (total === 0) {
       console.error('[错误] 所有数据源都抓取失败，无法生成日报');
       process.exit(1);
+    }
+
+    // ============ 去重 ============
+    const arxivDedup = dedupItems(arxivPapers, 'arxiv', cache, date);
+    arxivPapers = arxivDedup.fresh;
+    const hnDedup = dedupItems(hnStories, 'hn', cache, date);
+    hnStories = hnDedup.fresh;
+    const jqxDedup = dedupItems(jqxArticles, 'jqx', cache, date);
+    jqxArticles = jqxDedup.fresh;
+    const githubDedup = dedupItems(githubRepos, 'github', cache, date);
+    githubRepos = githubDedup.fresh;
+
+    const freshTotal = arxivPapers.length + hnStories.length + jqxArticles.length + githubRepos.length;
+    const filteredCount = total - freshTotal;
+    if (filteredCount > 0) {
+      console.log(`[去重] 过滤掉 ${filteredCount} 条今日已处理条目`);
+    }
+    if (freshTotal === 0) {
+      console.log('[去重] 所有条目今日均已处理，跳过生成');
+      await saveCache(CONFIG.CACHE_FILE, cache, CONFIG.DEDUP_WINDOW_DAYS);
+      return;
     }
   }
 
@@ -110,6 +150,7 @@ async function main() {
   console.log('='.repeat(50));
 
   // ============ 4. 推送到微信 ============
+  await saveCache(CONFIG.CACHE_FILE, cache, CONFIG.DEDUP_WINDOW_DAYS);
   await pushToWechat(`AI行业日报 | ${date}`, reportMarkdown);
 }
 
