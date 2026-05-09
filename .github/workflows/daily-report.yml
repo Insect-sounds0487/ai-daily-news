@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 安装 Node.js
         uses: actions/setup-node@v4
@@ -41,5 +43,9 @@ jobs:
           git config user.name "AI News Bot"
           git config user.email "bot@ai-daily-news.local"
           git add reports/
-          git commit -m "[AI日报] $(date '+%Y-%m-%d')" || echo "无新文件"
-          git push
+          if git diff --cached --quiet; then
+            echo "无新文件，跳过提交"
+          else
+            git commit -m "[AI日报] $(date '+%Y-%m-%d')"
+            git push origin HEAD:main
+          fi
