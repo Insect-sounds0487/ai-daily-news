@@ -1,38 +1,27 @@
 import { CONFIG, type ReportMode } from '../config';
 import type { HNStory } from '../types';
-import type { HealthCheckResult } from '../types';
-import { withRetry } from '../utils/retry';
-import { checkUrlHealth } from '../utils/health';
+import { BaseScraper } from './base';
 
-export class HackerNewsScraper {
+export class HackerNewsScraper extends BaseScraper<HNStory> {
+  protected get sourceName(): string { return 'HackerNews'; }
+  protected get healthCheckUrl(): string { return CONFIG.HN_TOP_STORIES; }
+
   private baseUrl = CONFIG.HN_ITEM_BASE;
   private keywords: string[];
 
   constructor() {
+    super();
     this.keywords = CONFIG.HN_AI_KEYWORDS.map((k) => k.toLowerCase());
   }
 
-  async scrape(mode?: ReportMode): Promise<HNStory[]> {
-    return withRetry(() => this.doScrape(mode), {
-      maxRetries: CONFIG.RETRY_MAX,
-      backoffMs: CONFIG.RETRY_BACKOFF_MS,
-      label: 'HackerNews',
-    });
-  }
-
-  async isHealthy(): Promise<HealthCheckResult> {
-    const result = await checkUrlHealth(CONFIG.HN_TOP_STORIES, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
-    return { ...result, sourceName: 'HackerNews' };
-  }
-
-  private async doScrape(mode?: ReportMode): Promise<HNStory[]> {
+  protected async doScrape(mode?: ReportMode): Promise<HNStory[]> {
     const effectiveMode = mode || CONFIG.REPORT_MODE;
     const topIds = await this.fetchTopStoryIds();
     const idsToFetch = topIds.slice(0, CONFIG.MODE_PARAMS[effectiveMode].hnFilterTop);
-    const stories = await this.fetchStoriesBatch(idsToFetch, 5);
+    const stories = (await this.fetchStoriesBatch(idsToFetch, 5)).filter((s): s is HNStory => s !== null);
 
     const filtered = stories
-      .filter((s) => s !== null && this.isAiRelated(s.title))
+      .filter((s) => this.isAiRelated(s.title))
       .sort((a, b) => b.score - a.score);
 
     const result = filtered.slice(0, CONFIG.MODE_PARAMS[effectiveMode].hnMax);
@@ -63,7 +52,7 @@ export class HackerNewsScraper {
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || data.type !== 'story') return null;
-    return data as HNStory;
+    return data as unknown as HNStory;
   }
 
   private async fetchWithTimeout(url: string, timeoutMs: number = CONFIG.SCRAPE_TIMEOUT_MS): Promise<Response> {

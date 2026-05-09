@@ -1,30 +1,22 @@
-import { chromium, type Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 import { CONFIG, type ReportMode } from '../config';
 import type { ArxivPaper } from '../types';
-import type { HealthCheckResult } from '../types';
-import { withRetry } from '../utils/retry';
-import { checkUrlHealth } from '../utils/health';
+import { BaseScraper } from './base';
 
-export class ArxivScraper {
-  async scrape(mode?: ReportMode): Promise<ArxivPaper[]> {
-    return withRetry(() => this.doScrape(mode), {
-      maxRetries: CONFIG.RETRY_MAX,
-      backoffMs: CONFIG.RETRY_BACKOFF_MS,
-      label: 'ArXiv',
-    });
+export class ArxivScraper extends BaseScraper<ArxivPaper> {
+  protected get sourceName(): string { return 'ArXiv'; }
+  protected get healthCheckUrl(): string { return CONFIG.ARXIV_CS_AI_RECENT; }
+
+  constructor(browser?: Browser) {
+    super(browser);
   }
 
-  async isHealthy(): Promise<HealthCheckResult> {
-    const result = await checkUrlHealth(CONFIG.ARXIV_CS_AI_RECENT, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
-    return { ...result, sourceName: 'ArXiv' };
-  }
-
-  private async doScrape(mode?: ReportMode): Promise<ArxivPaper[]> {
-    const browser = await chromium.launch({ headless: true });
+  protected async doScrape(mode?: ReportMode): Promise<ArxivPaper[]> {
+    if (!this.browser) throw new Error('ArXiv scraper requires a browser instance');
+    const page = await this.browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setExtraHTTPHeaders({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+        'User-Agent': CONFIG.USER_AGENT,
       });
 
       await page.goto(CONFIG.ARXIV_CS_AI_RECENT, {
@@ -39,7 +31,7 @@ export class ArxivScraper {
       const effectiveMode = mode || CONFIG.REPORT_MODE;
       return papers.slice(0, CONFIG.MODE_PARAMS[effectiveMode].arxivMax);
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -74,8 +66,8 @@ export class ArxivScraper {
           abstractUrl: `https://arxiv.org/abs/${paperId}`,
           pdfUrl: `https://arxiv.org/pdf/${paperId}`,
           scrapedAt,
-        } as import('../types').ArxivPaper;
-      }).filter((p): p is import('../types').ArxivPaper => p !== null);
+        } as ArxivPaper;
+      }).filter((p): p is ArxivPaper => p !== null);
     });
   }
 }

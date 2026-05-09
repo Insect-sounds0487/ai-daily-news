@@ -1,11 +1,12 @@
-import { chromium } from 'playwright';
+import type { Browser } from 'playwright';
 import { CONFIG, type ReportMode } from '../config';
 import type { GitHubRepo } from '../types';
-import type { HealthCheckResult } from '../types';
-import { withRetry } from '../utils/retry';
-import { checkUrlHealth } from '../utils/health';
+import { BaseScraper } from './base';
 
-export class GitHubTrendingScraper {
+export class GitHubTrendingScraper extends BaseScraper<GitHubRepo> {
+  protected get sourceName(): string { return 'GitHubTrending'; }
+  protected get healthCheckUrl(): string { return CONFIG.GITHUB_TRENDING; }
+
   private aiTopics = [
     'ai', 'artificial-intelligence', 'machine-learning', 'deep-learning',
     'llm', 'gpt', 'transformer', 'neural-network',
@@ -16,26 +17,17 @@ export class GitHubTrendingScraper {
     'fine-tuning', 'openai', 'data-science',
   ];
 
-  async scrape(mode?: ReportMode): Promise<GitHubRepo[]> {
-    return withRetry(() => this.doScrape(mode), {
-      maxRetries: CONFIG.RETRY_MAX,
-      backoffMs: CONFIG.RETRY_BACKOFF_MS,
-      label: 'GitHub',
-    });
+  constructor(browser?: Browser) {
+    super(browser);
   }
 
-  async isHealthy(): Promise<HealthCheckResult> {
-    const result = await checkUrlHealth(CONFIG.GITHUB_TRENDING, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
-    return { ...result, sourceName: 'GitHubTrending' };
-  }
-
-  private async doScrape(mode?: ReportMode): Promise<GitHubRepo[]> {
-    const browser = await chromium.launch({ headless: true });
+  protected async doScrape(mode?: ReportMode): Promise<GitHubRepo[]> {
+    if (!this.browser) throw new Error('GitHub scraper requires a browser instance');
+    const page = await this.browser.newPage();
     try {
-      const page = await browser.newPage();
       await page.setExtraHTTPHeaders({
         'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
+          CONFIG.USER_AGENT,
       });
 
       await page.goto(CONFIG.GITHUB_TRENDING, {
@@ -54,7 +46,7 @@ export class GitHubTrendingScraper {
       console.log(`[GitHub] 抓取到 ${result.length} 个 AI 相关仓库（共 ${repos.length} 个）`);
       return result;
     } finally {
-      await browser.close();
+      await page.close();
     }
   }
 
@@ -90,7 +82,7 @@ export class GitHubTrendingScraper {
           starsToday,
           totalStars,
           topics,
-        } as import('../types').GitHubRepo;
+        } as GitHubRepo;
       });
     });
   }

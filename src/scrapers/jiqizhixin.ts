@@ -1,34 +1,24 @@
-import { chromium, type Page, type BrowserContext } from 'playwright';
+import type { Browser, Page, BrowserContext } from 'playwright';
 import { CONFIG, type ReportMode } from '../config';
 import type { JiqizhixinArticle } from '../types';
-import type { HealthCheckResult } from '../types';
-import { withRetry } from '../utils/retry';
-import { checkUrlHealth } from '../utils/health';
+import { BaseScraper } from './base';
 
-export class JiqizhixinScraper {
-  async scrape(mode?: ReportMode): Promise<JiqizhixinArticle[]> {
-    return withRetry(() => this.doScrape(mode), {
-      maxRetries: CONFIG.RETRY_MAX,
-      backoffMs: CONFIG.RETRY_BACKOFF_MS,
-      label: '机器之心',
+export class JiqizhixinScraper extends BaseScraper<JiqizhixinArticle> {
+  protected get sourceName(): string { return '机器之心'; }
+  protected get healthCheckUrl(): string { return CONFIG.JIQIZHIXIN_HOME; }
+
+  constructor(browser?: Browser) {
+    super(browser);
+  }
+
+  protected async doScrape(mode?: ReportMode): Promise<JiqizhixinArticle[]> {
+    if (!this.browser) throw new Error('机器之心 scraper requires a browser instance');
+    const context = await this.browser.newContext({
+      userAgent:
+        CONFIG.USER_AGENT,
     });
-  }
-
-  async isHealthy(): Promise<HealthCheckResult> {
-    const result = await checkUrlHealth(CONFIG.JIQIZHIXIN_HOME, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
-    return { ...result, sourceName: '机器之心' };
-  }
-
-  private async doScrape(mode?: ReportMode): Promise<JiqizhixinArticle[]> {
-    const browser = await chromium.launch({ headless: true });
+    const page = await context.newPage();
     try {
-      const context = await browser.newContext({
-        userAgent:
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
-      });
-
-      const page = await context.newPage();
-
       await page.goto(CONFIG.JIQIZHIXIN_HOME, {
         waitUntil: 'networkidle',
         timeout: CONFIG.SCRAPE_TIMEOUT_MS,
@@ -52,7 +42,8 @@ export class JiqizhixinScraper {
       console.log(`[机器之心] 抓取到 ${result.length} 篇文章，获取到 ${urls.filter(Boolean).length} 个 URL`);
       return result;
     } finally {
-      await browser.close();
+      await page.close();
+      await context.close();
     }
   }
 
@@ -96,33 +87,27 @@ export class JiqizhixinScraper {
     page: Page,
     index: number
   ): Promise<string | null> {
-    const newPagePromise = new Promise<string | null>((resolve) => {
-      const timeout = setTimeout(() => resolve(null), 8000);
-
-      context.on('page', async (newPage) => {
-        try {
-          await newPage.waitForLoadState('domcontentloaded', { timeout: 5000 });
-          const url = newPage.url();
-          await newPage.close();
-          clearTimeout(timeout);
-          resolve(url);
-        } catch {
-          clearTimeout(timeout);
-          resolve(null);
-        }
-      });
-    });
-
     try {
       const titleEls = page.locator('.home__article-item__title');
       const count = await titleEls.count();
       if (index >= count) return null;
 
-      await titleEls.nth(index).click({ timeout: 5000 });
+      const [newPage] = await Promise.all([
+        context.waitForEvent('page', { timeout: 8000 }),
+        titleEls.nth(index).click({ timeout: 5000 }),
+      ]);
+
+      try {
+        await newPage.waitForLoadState('domcontentloaded', { timeout: 5000 });
+        const url = newPage.url();
+        await newPage.close();
+        return url;
+      } catch {
+        await newPage.close().catch(() => {});
+        return null;
+      }
     } catch {
       return null;
     }
-
-    return newPagePromise;
   }
 }

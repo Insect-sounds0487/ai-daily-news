@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 echo "=============================================="
 echo " AI 行业每日大事总结 — 容器入口"
@@ -16,12 +16,14 @@ fi
 # 创建 reports 目录
 mkdir -p reports
 
+GIT_REMOTE_URL="${GIT_REMOTE_URL:-https://github.com/Insect-sounds0487/ai-daily-news.git}"
+
 # 如果是 Git 仓库，拉取最新代码
 if [ -d .git ]; then
   echo "[Git] 拉取最新代码..."
   # 注入 GH_PAT 凭据（如有配置）
-  if [ -n "$GH_PAT" ]; then
-    git remote set-url origin "https://git:${GH_PAT}@github.com/Insect-sounds0487/ai-daily-news.git" 2>/dev/null || true
+  if [ -n "${GH_PAT:-}" ]; then
+    git remote set-url origin "https://git:${GH_PAT}@${GIT_REMOTE_URL#https://}" 2>/dev/null || true
   fi
   git pull origin main 2>/dev/null || echo "[Git] 无远程配置，跳过拉取"
 fi
@@ -29,10 +31,10 @@ fi
 # 生成日报
 echo ""
 echo "[运行] 开始生成日报..."
+set +e
 node dist/index.js "$@"
-
-# 保存退出状态
 EXIT_CODE=$?
+set -e
 
 if [ $EXIT_CODE -ne 0 ]; then
   echo "[错误] 日报生成失败，退出码: $EXIT_CODE"

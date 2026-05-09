@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { chromium } from 'playwright';
+import type { Browser } from 'playwright';
 import { CONFIG, REPORT_MODES, type ReportMode } from './config';
 import { ArxivScraper } from './scrapers/arxiv';
 import { HackerNewsScraper } from './scrapers/hackernews';
@@ -37,10 +39,19 @@ async function main() {
   console.log(`日期: ${date}`);
   console.log('='.repeat(50));
 
-  // ============ 0. 健康检查 ============
+  // ============ 0. 健康检查 + 浏览器启动 ============
+  let browser: Browser | null = null;
+
   if (!skipScrape) {
+    browser = await chromium.launch({ headless: true });
+
     console.log('\n--- 阶段 0/4: 源健康检查 ---');
-    const scrapers = [new ArxivScraper(), new HackerNewsScraper(), new JiqizhixinScraper(), new GitHubTrendingScraper()];
+    const scrapers = [
+      new ArxivScraper(browser),
+      new HackerNewsScraper(),
+      new JiqizhixinScraper(browser),
+      new GitHubTrendingScraper(browser),
+    ];
     const healthResults = await Promise.allSettled(scrapers.map(s => s.isHealthy()));
     for (const r of healthResults) {
       if (r.status === 'fulfilled' && !r.value.healthy) {
@@ -58,11 +69,16 @@ async function main() {
   if (!skipScrape) {
     console.log('\n--- 阶段 1/3: 数据抓取 ---');
 
+    const arxivScraper = new ArxivScraper(browser!);
+    const hnScraper = new HackerNewsScraper();
+    const jqxScraper = new JiqizhixinScraper(browser!);
+    const githubScraper = new GitHubTrendingScraper(browser!);
+
     const scrapeResults = await Promise.allSettled([
-      new ArxivScraper().scrape(mode).then((r) => { arxivPapers = r; }),
-      new HackerNewsScraper().scrape(mode).then((r) => { hnStories = r; }),
-      new JiqizhixinScraper().scrape(mode).then((r) => { jqxArticles = r; }),
-      new GitHubTrendingScraper().scrape(mode).then((r) => { githubRepos = r; }),
+      arxivScraper.scrape(mode).then((r) => { arxivPapers = r; }),
+      hnScraper.scrape(mode).then((r) => { hnStories = r; }),
+      jqxScraper.scrape(mode).then((r) => { jqxArticles = r; }),
+      githubScraper.scrape(mode).then((r) => { githubRepos = r; }),
     ]);
 
     const failures = scrapeResults.filter((r) => r.status === 'rejected');
@@ -125,8 +141,12 @@ async function main() {
   const reportsDir = CONFIG.PDF_OUTPUT_DIR;
   await fs.mkdir(reportsDir, { recursive: true });
   const mdPath = path.join(reportsDir, `AI日报-${date}.md`);
-  await fs.writeFile(mdPath, reportMarkdown, 'utf-8');
-  console.log(`[Markdown] 已保存: ${mdPath}`);
+  try {
+    await fs.writeFile(mdPath, reportMarkdown, 'utf-8');
+    console.log(`[Markdown] 已保存: ${mdPath}`);
+  } catch (err) {
+    console.warn(`[Markdown] 保存失败: ${err instanceof Error ? err.message : err}`);
+  }
 
   // ============ 3. 生成 PDF ============
   if (!skipPdf) {
@@ -151,6 +171,9 @@ async function main() {
   // ============ 4. 推送到微信 ============
   await saveCache(CONFIG.CACHE_FILE, cache, CONFIG.DEDUP_WINDOW_DAYS);
   await pushToWechat(`AI行业日报 | ${date}`, reportMarkdown);
+
+  // 关闭共享浏览器
+  if (browser) await browser.close();
 }
 
 main().catch((err) => {

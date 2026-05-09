@@ -8,7 +8,7 @@ export async function loadCache(filePath: string): Promise<CacheManifest> {
   try {
     const raw = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as CacheManifest;
-    if (parsed && typeof parsed.entries === 'object') return parsed;
+    if (parsed && typeof parsed.entries === 'object' && !Array.isArray(parsed.entries)) return parsed;
     console.warn('[Cache] 缓存格式异常，重置');
     return { entries: {} };
   } catch {

@@ -98,7 +98,6 @@ export const CONFIG = {
   // --- 健康检查 ---
   HEALTH_CHECK_TIMEOUT_MS: 5_000,
 
-  // --- Git ---
-  GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME || 'AI News Bot',
-  GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL || 'bot@ai-daily-news.local',
+  // --- User-Agent ---
+  USER_AGENT: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36',
 } as const;

@@ -11,6 +11,10 @@ fonts/
 *.log
 .DS_Store
 .claude/
+.vscode/
+.idea/
+*.tsbuildinfo
+.env.local
 
 # 临时调试脚本（含敏感 Token，禁止提交）
 deploy_*.js
@@ -26,3 +30,9 @@ fetch_logs*.js
 get_*.js
 set_*.js
 status_*.js
+_*.js
+_*.ts
+_*.cjs
+deploy.js
+dump_path.sh
+final_check.js

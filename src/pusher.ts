@@ -19,7 +19,7 @@ async function sendWeCom(key: string, content: string): Promise<boolean> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ msgtype: 'markdown', markdown: { content } }),
   });
-  const data = await res.json();
+  const data: any = await res.json();
   if (data.errcode !== 0) {
     console.warn(`[WeCom] 推送失败: ${data.errmsg || JSON.stringify(data)}`);
     return false;
@@ -130,7 +130,9 @@ export async function pushToWechat(title: string, content: string): Promise<void
           await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: false, error: 'API 返回错误' });
         }
       } else {
-        const parts = splitContent(content, WECOM_MAX_BYTES - byteLength(header + '\n\n'));
+        // " (续 999/999)" UTF-8 ≈ 16 bytes, longer than primary header
+        const SUFFIX_OVERHEAD = 20;
+        const parts = splitContent(content, WECOM_MAX_BYTES - byteLength(header + '\n\n') - SUFFIX_OVERHEAD);
         let sentCount = 0;
         for (let i = 0; i < parts.length; i++) {
           const partHeader = i === 0 ? header : `${header} (续 ${i + 1}/${parts.length})`;
@@ -171,7 +173,7 @@ export async function pushToWechat(title: string, content: string): Promise<void
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token, title, content, template: 'markdown' }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     if (data.code === 200) {
       console.log('[PushPlus] 推送成功');
       await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'pushplus', title, success: true });

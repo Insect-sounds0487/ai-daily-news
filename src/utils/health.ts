@@ -10,7 +10,7 @@ export async function checkUrlHealth(
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const res = await fetch(url, {
-        method: 'GET',
+        method: 'HEAD',
         signal: controller.signal,
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HealthCheck/1.0)' },
       });
