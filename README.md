@@ -1,4 +1,4 @@
-# AI 行业日报自动生成器
+# AI Daily News Generator
 
 <p align="center">
   <img src="https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white" alt="Node.js">
@@ -10,40 +10,44 @@
 </p>
 
 <p align="center">
-  <b>每天自动抓取 AI 行业最新动态，生成中文日报摘要，推送至微信 / 企业微信，并保存为 PDF。</b><br>
-  打破信息壁垒，让 AI 资讯触手可及。
+  <b>Automatically collect the latest AI industry news, generate daily digests in Chinese, push to WeChat / WeCom, and save as PDF.</b><br>
+  Break down information barriers — make AI news accessible to everyone.
+</p>
+
+<p align="center">
+  <a href="README.zh.md">🇨🇳 中文版</a>
 </p>
 
 ---
 
-## 特性
+## Features
 
-| | 特性 | 说明 |
-|---|------|------|
-| 📡 | **四源聚合** | ArXiv 论文 · Hacker News 热帖 · GitHub Trending 仓库 · 机器之心文章 |
-| 🤖 | **AI 摘要** | 调用 DeepSeek API 生成专业中文日报，含技术点评 |
-| 📄 | **PDF 输出** | 自动排版 A4 PDF，支持中文字体渲染 |
-| 📱 | **多通道推送** | 企业微信机器人（优先） + PushPlus（备选） |
-| 📜 | **推送历史** | 每次推送记录时间、渠道、结果，可追溯 |
-| 🧹 | **缓存去重** | 同一天重复运行自动跳过已处理条目，避免重复推送 |
-| 🔁 | **自动重试** | 网络波动自动重试（3 次指数退避 + 随机抖动），临时故障自动恢复 |
-| 🩺 | **健康检查** | 抓取前 HEAD 探活，源不可达时 warn 不阻断 |
-| 🎯 | **三种模式** | 轻量版 / 标准版 / 深度版，适应不同阅读场景 |
-| ⏰ | **定时运行** | GitHub Actions 每天 8:00 自动执行，也支持 Docker 部署 |
-| 🛡️ | **容错设计** | 单源失败不影响其他源，API 不可用时降级输出原始数据 |
-| 🖥️ | **共享浏览器** | 3 个 Playwright 抓取器复用 1 个 Chromium 实例，内存开销降低 60% |
-| ☝️ | **一键初始化** | `npm run setup` 自动完成全部环境配置 |
+| | Feature | Description |
+|---|---------|-------------|
+| 📡 | **Quad-Source Aggregation** | ArXiv papers · Hacker News top posts · GitHub Trending repos · Jiqizhixin articles |
+| 🤖 | **AI Summarization** | Calls DeepSeek API to generate professional daily digests with technical commentary |
+| 📄 | **PDF Output** | Automatically formatted A4 PDF with CJK font rendering |
+| 📱 | **Multi-Channel Push** | WeCom Bot (primary) + PushPlus (fallback) |
+| 📜 | **Push History** | Every push records timestamp, channel, result — fully traceable |
+| 🧹 | **Cache Deduplication** | Re-running on the same day automatically skips already-processed items |
+| 🔁 | **Auto Retry** | Exponential backoff (3 attempts + jitter) for network flakiness |
+| 🩺 | **Health Check** | HEAD probe before scraping; warns without blocking when sources are unreachable |
+| 🎯 | **Three Modes** | Light / Standard / Deep — tailored for different reading scenarios |
+| ⏰ | **Scheduled Runs** | GitHub Actions daily at 8:00 AM CST, also supports Docker deployment |
+| 🛡️ | **Fault Tolerance** | Single-source failure doesn't affect others; graceful degradation when API is down |
+| 🖥️ | **Shared Browser** | 3 Playwright scrapers reuse 1 Chromium instance — 60% less memory |
+| ☝️ | **One-Click Setup** | `npm run setup` completes all environment configuration automatically |
 
 ---
 
-## 快速开始
+## Quick Start
 
-### 前置准备
+### Prerequisites
 
 - **Node.js** >= 18
-- **DeepSeek API Key**（[免费获取](https://platform.deepseek.com/api_keys)）
+- **DeepSeek API Key** ([Get one free](https://platform.deepseek.com/api_keys))
 
-### 1. 克隆并一键初始化
+### 1. Clone and One-Click Setup
 
 ```bash
 git clone https://github.com/Insect-sounds0487/ai-daily-news.git
@@ -51,82 +55,82 @@ cd ai-daily-news
 npm run setup
 ```
 
-`npm run setup` 会自动完成：
-1. 从 `.env.example` 创建 `.env`
-2. 安装 npm 依赖
-3. 安装 Playwright Chromium 浏览器
-4. 下载中文字体（用于 PDF 渲染）
+`npm run setup` automates:
+1. Creates `.env` from `.env.example`
+2. Installs npm dependencies
+3. Installs Playwright Chromium browser
+4. Downloads CJK fonts (for PDF rendering)
 
-### 2. 配置环境变量
+### 2. Configure Environment Variables
 
-编辑 `.env`，填入你的 API Key：
+Edit `.env` and fill in your API Key:
 
 ```ini
-# === 必填 ===
-DEEPSEEK_API_KEY=sk-你的key
+# === Required ===
+DEEPSEEK_API_KEY=sk-your-key
 
-# === 可选 ===
+# === Optional ===
 REPORT_MODE=standard
 
-# 推送方式一：企业微信机器人（选填）
+# Push Channel 1: WeCom Bot (optional)
 WECOM_WEBHOOK_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
 
-# 推送方式二：PushPlus（选填，与企业微信二选一或同时使用）
-PUSHPLUS_TOKEN=你的pushplus_token
+# Push Channel 2: PushPlus (optional, use alongside or instead of WeCom)
+PUSHPLUS_TOKEN=your_pushplus_token
 ```
 
-### 3. 运行
+### 3. Run
 
 ```bash
-# 标准模式（推荐，10-15分钟阅读）
+# Standard mode (recommended, 10-15 min read)
 npm run dev
 
-# 轻量模式（~5分钟阅读）
+# Light mode (~5 min read)
 npm run dev:light
 
-# 深度模式（通勤细读）
+# Deep mode (commute-friendly deep read)
 npm run dev:deep
 ```
 
-也可通过 CLI 参数指定模式：
+Or specify mode via CLI arguments:
 
 ```bash
-npm run dev -- --mode=light    # 临时切换模式
-npm run dev -- --skip-pdf      # 跳过 PDF 生成
-npm run dev -- --skip-scrape   # 跳过抓取（用于测试摘要）
+npm run dev -- --mode=light      # Switch mode temporarily
+npm run dev -- --skip-pdf        # Skip PDF generation
+npm run dev -- --skip-scrape     # Skip scraping (test summarization only)
 ```
 
 ---
 
-## 三种模式对比
+## Mode Comparison
 
-| 模式 | 命令 | 阅读时间 | ArXiv | Hacker News | 机器之心 | GitHub |
-|------|------|----------|-------|-------------|----------|--------|
-| 🌤️ 轻量版 | `npm run dev:light` | ~5 分钟 | 8 篇 | 15 条 | 5 篇 | 5 个 |
-| ☀️ 标准版 | `npm run dev` | 10-15 分钟 | 20 篇 | 30 条 | 10 篇 | 8 个 |
-| 🔬 深度版 | `npm run dev:deep` | 通勤细读 | 30 篇 | 50 条 | 15 篇 | 12 个 |
+| Mode | Command | Read Time | ArXiv | Hacker News | Jiqizhixin | GitHub |
+|------|---------|-----------|-------|-------------|------------|--------|
+| 🌤️ Light | `npm run dev:light` | ~5 min | 8 papers | 15 posts | 5 articles | 5 repos |
+| ☀️ Standard | `npm run dev` | 10-15 min | 20 papers | 30 posts | 10 articles | 8 repos |
+| 🔬 Deep | `npm run dev:deep` | Commute read | 30 papers | 50 posts | 15 articles | 12 repos |
 
 ---
 
-## 推送配置
+## Push Configuration
 
-### 企业微信机器人（推荐）
+### WeCom Bot (Recommended)
 
-1. 在企业微信群中添加群机器人，获取 Webhook URL
-2. URL 格式：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx`
-3. 将 `key` 参数值填入 `WECOM_WEBHOOK_KEY`
-4. 日报内容超过 4096 字节限制时会自动按章节分段发送，标注 `(续 2/N)` 编号
+1. Add a group bot in WeCom and get the Webhook URL
+2. URL format: `https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx`
+3. Fill the `key` parameter value into `WECOM_WEBHOOK_KEY`
+4. If the digest exceeds the 4096-byte limit, it's automatically split and sent in sections with `(cont. 2/N)` numbering
 
 ### PushPlus
 
-1. 在 [PushPlus](https://www.pushplus.plus/) 注册并获取 Token
-2. 填入 `PUSHPLUS_TOKEN`
+1. Register at [PushPlus](https://www.pushplus.plus/) and get your Token
+2. Fill it in as `PUSHPLUS_TOKEN`
 
-> 推送优先级：企业微信机器人 → PushPlus。配置企业微信后，PushPlus 作为备用通道。
+> Push priority: WeCom Bot → PushPlus. PushPlus serves as a backup channel when WeCom is configured.
 
-### 推送历史
+### Push History
 
-每次推送结果记录在 `reports/push-history.json`：
+Push results are recorded in `reports/push-history.json`:
 
 ```json
 [
@@ -142,28 +146,28 @@ npm run dev -- --skip-scrape   # 跳过抓取（用于测试摘要）
 
 ---
 
-## 部署方式
+## Deployment
 
-### 方式一：GitHub Actions（推荐）
+### Option 1: GitHub Actions (Recommended)
 
-项目已包含 GitHub Actions 工作流，每天北京时间 8:00 自动运行。
+The project includes a GitHub Actions workflow that runs daily at 8:00 AM CST.
 
-**配置步骤：**
+**Setup:**
 
-1. Fork 或推送代码到你的 GitHub 仓库
-2. 进入仓库 **Settings → Secrets and variables → Actions**
-3. 添加以下 Secrets：
+1. Fork or push code to your GitHub repository
+2. Go to **Settings → Secrets and variables → Actions**
+3. Add the following Secrets:
 
-| Secret | 必填 | 说明 |
-|--------|------|------|
+| Secret | Required | Description |
+|--------|----------|-------------|
 | `DEEPSEEK_API_KEY` | ✅ | DeepSeek API Key |
-| `WECOM_WEBHOOK_KEY` | ❌ | 企业微信 Webhook Key |
+| `WECOM_WEBHOOK_KEY` | ❌ | WeCom Webhook Key |
 | `PUSHPLUS_TOKEN` | ❌ | PushPlus Token |
-| `GH_PAT` | ❌ | GitHub PAT（用于自动提交 PDF，需 `repo` + `workflow` 权限） |
+| `GH_PAT` | ❌ | GitHub PAT (for auto-committing PDFs, needs `repo` + `workflow` scope) |
 
-4. 进入 Actions 页面 → **AI日报自动生成** → **Run workflow** 手动触发测试
+4. Go to Actions → **AI日报自动生成** → **Run workflow** to trigger a manual test
 
-### 方式二：Docker
+### Option 2: Docker
 
 ```bash
 docker build -t ai-daily-news .
@@ -173,178 +177,178 @@ docker run -e DEEPSEEK_API_KEY=sk-xxx \
            ai-daily-news
 ```
 
-或使用环境变量文件：
+Or use an environment file:
 
 ```bash
 docker run --env-file .env ai-daily-news
 ```
 
-> Docker 镜像基于 Playwright 官方镜像，内置 Chromium + 中文字体（`fonts-noto-cjk`）。
-> 设置 `GH_PAT` 可让容器自动提交生成的 PDF 到仓库。
+> The Docker image is based on the Playwright official image, with Chromium + CJK fonts (`fonts-noto-cjk`) built in.
+> Setting `GH_PAT` enables the container to auto-commit generated PDFs back to the repository.
 
-### 方式三：本地开发
+### Option 3: Local Development
 
 ```bash
-npm run dev              # 标准版（抓取 → AI 摘要 → PDF → 推送）
-npm run dev:light        # 轻量版
-npm run dev:deep         # 深度版
-npm run dev -- --mode=light --skip-pdf  # 组合参数
+npm run dev              # Standard mode (scrape → AI summary → PDF → push)
+npm run dev:light        # Light mode
+npm run dev:deep         # Deep mode
+npm run dev -- --mode=light --skip-pdf  # Combine flags
 ```
 
 ---
 
-## 命令参考
+## Command Reference
 
-| 命令 | 说明 |
-|------|------|
-| `npm run setup` | **一键初始化**（推荐新用户使用） |
-| `npm run dev` | 标准模式运行 |
-| `npm run dev:light` | 轻量模式运行 |
-| `npm run dev:deep` | 深度模式运行 |
-| `npm run setup-fonts` | 单独下载中文字体 |
-| `npm run build` | TypeScript 编译 |
-| `npm run start` | 运行编译后的版本 |
+| Command | Description |
+|---------|-------------|
+| `npm run setup` | **One-click setup** (recommended for new users) |
+| `npm run dev` | Run in standard mode |
+| `npm run dev:light` | Run in light mode |
+| `npm run dev:deep` | Run in deep mode |
+| `npm run setup-fonts` | Download CJK fonts only |
+| `npm run build` | TypeScript compilation |
+| `npm run start` | Run compiled version |
 
-### CLI 参数
+### CLI Flags
 
-| 参数 | 说明 |
-|------|------|
-| `--mode=light\|standard\|deep` | 指定日报模式（优先级高于 `.env` 中的 `REPORT_MODE`） |
-| `--skip-pdf` | 跳过 PDF 生成 |
-| `--skip-scrape` | 跳过抓取（使用空数据，用于测试摘要生成） |
+| Flag | Description |
+|------|-------------|
+| `--mode=light\|standard\|deep` | Specify report mode (overrides `REPORT_MODE` in `.env`) |
+| `--skip-pdf` | Skip PDF generation |
+| `--skip-scrape` | Skip scraping (use empty data, useful for testing summarization) |
 
 ---
 
-## 项目结构
+## Project Structure
 
 ```
 ai-daily-news/
 ├── src/
-│   ├── index.ts               # 主编排器
-│   ├── config.ts              # 配置（数据源、模式参数、关键词）
-│   ├── types.ts               # 类型定义
-│   ├── cache.ts               # 缓存去重模块（避免同天重复推送）
-│   ├── pusher.ts              # 推送模块（企业微信 + PushPlus，含推送历史）
+│   ├── index.ts               # Main orchestrator
+│   ├── config.ts              # Configuration (sources, mode params, keywords)
+│   ├── types.ts               # Type definitions
+│   ├── cache.ts               # Cache deduplication module
+│   ├── pusher.ts              # Push module (WeCom + PushPlus, with push history)
 │   ├── utils/
-│   │   ├── retry.ts           # 通用重试工具（3 次指数退避 + 抖动）
-│   │   └── health.ts          # 健康检查工具（HEAD + AbortSignal 探活）
+│   │   ├── retry.ts           # General retry utility (3 attempts, exp. backoff + jitter)
+│   │   └── health.ts          # Health check utility (HEAD + AbortSignal probe)
 │   ├── scrapers/
-│   │   ├── base.ts            # BaseScraper 抽象基类（共享浏览器实例）
-│   │   ├── arxiv.ts           # ArXiv cs.AI 抓取器
-│   │   ├── hackernews.ts      # Hacker News 抓取器（AI 关键词过滤）
-│   │   ├── jiqizhixin.ts      # 机器之心抓取器（React SPA 新标签页捕获）
-│   │   └── github.ts          # GitHub Trending 抓取器（AI topics/描述过滤）
+│   │   ├── base.ts            # BaseScraper abstract class (shared browser instance)
+│   │   ├── arxiv.ts           # ArXiv cs.AI scraper
+│   │   ├── hackernews.ts      # Hacker News scraper (AI keyword filtering)
+│   │   ├── jiqizhixin.ts      # Jiqizhixin scraper (React SPA new-tab capture)
+│   │   └── github.ts          # GitHub Trending scraper (AI topics/desc filtering)
 │   ├── summarizer/
-│   │   ├── deepseek.ts        # DeepSeek API 调用 + 降级报告
-│   │   └── prompts.ts         # 提示词模板（三种模式差异化 prompt）
+│   │   ├── deepseek.ts        # DeepSeek API client + graceful degradation
+│   │   └── prompts.ts         # Prompt templates (differentiated for 3 modes)
 │   └── pdf/
-│       └── generator.ts       # PDF 生成器（Playwright 渲染引擎）
+│       └── generator.ts       # PDF generator (Playwright rendering engine)
 ├── scripts/
-│   ├── setup.ts               # 一键初始化脚本
-│   └── download-fonts.ts      # 中文字体下载脚本（Noto Sans SC）
-├── reports/                   # 日报输出目录（MD + PDF + 缓存 + 推送历史）
+│   ├── setup.ts               # One-click setup script
+│   └── download-fonts.ts      # CJK font download script (Noto Sans SC)
+├── reports/                   # Report output directory (MD + PDF + cache + push history)
 ├── .github/workflows/
-│   └── daily-report.yml       # GitHub Actions 工作流
-├── Dockerfile                 # Docker 镜像
-└── entrypoint.sh              # 容器入口脚本（含 Git 自动提交）
+│   └── daily-report.yml       # GitHub Actions workflow
+├── Dockerfile                 # Docker image
+└── entrypoint.sh              # Container entry script (with Git auto-commit)
 ```
 
 ---
 
-## 数据源说明
+## Data Sources
 
-| 来源 | 抓取方式 | 特点 |
-|------|----------|------|
-| **ArXiv cs.AI** | Playwright 渲染 | 当日最新论文，含标题、作者、摘要链接 |
-| **Hacker News** | Firebase REST API | 按 30+ AI 关键词过滤，按热度排序，带超时 + 重试 |
-| **GitHub Trending** | Playwright 渲染 | 按 20+ AI topics 和描述过滤 |
-| **机器之心** | Playwright 点击拦截 | React SPA，捕获新标签页获取 URL |
+| Source | Scraping Method | Notes |
+|--------|----------------|-------|
+| **ArXiv cs.AI** | Playwright rendering | Latest papers with titles, authors, and abstract links |
+| **Hacker News** | Firebase REST API | Filtered by 30+ AI keywords, sorted by popularity, with timeout + retry |
+| **GitHub Trending** | Playwright rendering | Filtered by 20+ AI topics and descriptions |
+| **Jiqizhixin** | Playwright click interception | React SPA, captures new tabs for URL extraction |
 
-### 稳定性保障
+### Reliability Guarantees
 
-| 机制 | 说明 |
-|------|------|
-| 🔁 自动重试 | 每个源最多重试 3 次，指数退避 + 随机抖动间隔 |
-| 🩺 健康检查 | 抓取前对所有源执行 HTTP HEAD 探活，失败仅 warn 不阻断 |
-| ⏱️ 请求超时 | 所有请求 30 秒超时，配套 AbortController 清理 |
-| 🛡️ 单源容错 | `Promise.allSettled` 并行抓取，单源失败不影响其他源 |
-| 📉 API 降级 | DeepSeek API 不可用时，自动降级为原始数据汇编报告 |
-| 🧹 缓存去重 | 同一天重复运行自动跳过已处理条目（缓存保存 7 天） |
+| Mechanism | Description |
+|-----------|-------------|
+| 🔁 Auto Retry | Each source retries up to 3 times with exponential backoff + jitter |
+| 🩺 Health Check | HTTP HEAD probe before scraping; warns without blocking on failure |
+| ⏱️ Request Timeout | All requests have a 30-second timeout with AbortController cleanup |
+| 🛡️ Single-Source Fault Tolerance | `Promise.allSettled` parallel scraping; one failure doesn't affect others |
+| 📉 API Degradation | Falls back to raw data compilation when DeepSeek API is unavailable |
+| 🧹 Cache Deduplication | Re-running on the same day skips already-processed items (cache TTL: 7 days) |
 
 ---
 
-## 环境变量一览
+## Environment Variables
 
-| 变量 | 必填 | 默认值 | 说明 |
-|------|------|--------|------|
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
 | `DEEPSEEK_API_KEY` | ✅ | — | DeepSeek API Key |
-| `REPORT_MODE` | ❌ | `standard` | 日报模式：`light` / `standard` / `deep` |
-| `WECOM_WEBHOOK_KEY` | ❌ | — | 企业微信机器人 Webhook Key |
+| `REPORT_MODE` | ❌ | `standard` | Report mode: `light` / `standard` / `deep` |
+| `WECOM_WEBHOOK_KEY` | ❌ | — | WeCom Bot Webhook Key |
 | `PUSHPLUS_TOKEN` | ❌ | — | PushPlus Token |
-| `GH_PAT` | ❌ | — | GitHub PAT，用于 Docker 中自动提交 PDF |
+| `GH_PAT` | ❌ | — | GitHub PAT for auto-committing PDFs in Docker |
 
 ---
 
-## 常见问题
+## FAQ
 
 <details>
-<summary><b>报告是中文还是英文？</b></summary>
-日报正文为中文，英文论文/文章标题保留原文，技术点评使用中文。
+<summary><b>What language is the report in?</b></summary>
+The digest body is in Chinese. English paper/article titles are kept in their original language. Technical commentary is in Chinese.
 </details>
 
 <details>
-<summary><b>抓取失败怎么办？</b></summary>
-使用 `Promise.allSettled` 并行抓取，单个源失败不影响其他源。如果所有源都失败，程序会报错退出。DeepSeek API 不可用时，自动降级为原始数据报告。
+<summary><b>What if scraping fails?</b></summary>
+Scraping uses `Promise.allSettled` — a single source failure doesn't affect others. If all sources fail, the program exits with an error. When the DeepSeek API is unavailable, it automatically degrades to a raw data report.
 </details>
 
 <details>
-<summary><b>日报内容太长怎么办？</b></summary>
-企业微信机器人有 4096 字节限制，程序会自动按章节分段发送，每段标注 `(续 2/N)` 等编号。PushPlus 无此限制。
+<summary><b>The digest is too long for WeCom?</b></summary>
+WeCom Bot has a 4096-byte limit. The program splits content into sections and sends them sequentially with `(cont. 2/N)` numbering. PushPlus has no such limit.
 </details>
 
 <details>
-<summary><b>同一天多次运行会重复推送吗？</b></summary>
-不会。程序内置去重缓存（`reports/.cache.json`），已处理的条目会自动跳过。缓存保留 7 天，过期自动清理。
+<summary><b>Will re-running on the same day cause duplicate pushes?</b></summary>
+No. A deduplication cache (`reports/.cache.json`) tracks processed items and skips them automatically. The cache is retained for 7 days and cleaned up on expiration.
 </details>
 
 <details>
-<summary><b>如何查看推送历史？</b></summary>
-每次推送结果记录在 `reports/push-history.json`，包含时间、渠道、是否成功、分段数等。
+<summary><b>How do I view push history?</b></summary>
+Push results are recorded in `reports/push-history.json`, including timestamp, channel, success status, and segment count.
 </details>
 
 <details>
-<summary><b>PDF 中文显示方框怎么办？</b></summary>
-运行 `npm run setup-fonts` 下载中文字体，或在 Docker 中使用内置的 `fonts-noto-cjk`。
+<summary><b>PDF shows boxes instead of Chinese characters?</b></summary>
+Run `npm run setup-fonts` to download CJK fonts, or use Docker which includes `fonts-noto-cjk` out of the box.
 </details>
 
 <details>
-<summary><b>如何添加自己的数据源？</b></summary>
-在 `src/scrapers/` 下新建抓取器类，继承 `BaseScraper<T>` 实现 `doScrape()` 方法，在 `src/index.ts` 中注册即可。需使用 Playwright 的传入共享浏览器实例。
+<summary><b>How do I add my own data source?</b></summary>
+Create a new scraper class under `src/scrapers/`, extend `BaseScraper<T>` and implement the `doScrape()` method, then register it in `src/index.ts`. Use the shared browser instance passed in by Playwright.
 </details>
 
 <details>
-<summary><b>如何修改定时运行时间？</b></summary>
-编辑 `.github/workflows/daily-report.yml` 中的 cron 表达式（当前为 `0 0 * * *`，即北京时间 8:00）。
+<summary><b>How do I change the scheduled run time?</b></summary>
+Edit the cron expression in `.github/workflows/daily-report.yml` (currently `0 0 * * *`, which is 8:00 AM CST).
 </details>
 
 ---
 
-## 输出示例
+## Sample Output
 
-运行后会生成：
+After running, the following files are generated:
 
 ```
 reports/
-├── AI日报-2026-05-09.md        # Markdown 源文件
-├── AI日报-2026-05-09.pdf       # 格式化 PDF
-├── .cache.json                  # 去重缓存（自动管理）
-└── push-history.json            # 推送历史记录
+├── AI日报-2026-05-09.md        # Markdown source file
+├── AI日报-2026-05-09.pdf       # Formatted PDF
+├── .cache.json                  # Deduplication cache (auto-managed)
+└── push-history.json            # Push history records
 ```
 
-推送通知（企业微信 / PushPlus）同步送达。
+Push notifications (WeCom / PushPlus) are delivered simultaneously.
 
 ---
 
-## 许可证
+## License
 
 MIT © Insect-sounds0487
