@@ -9,3 +9,18 @@ fonts/
 *.log
 .DS_Store
 .claude/
+
+# 临时调试脚本（含敏感 Token，禁止提交）
+deploy_*.js
+check_*.js
+push_*.js
+diagnose*.js
+fix_*.js
+test_*.js
+bypass_*.js
+verify_*.js
+trigger_*.js
+fetch_logs*.js
+get_*.js
+set_*.js
+status_*.js
