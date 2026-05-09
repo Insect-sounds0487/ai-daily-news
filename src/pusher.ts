@@ -1,3 +1,7 @@
+import fs from 'node:fs/promises';
+import { CONFIG } from './config';
+import type { PushHistoryEntry } from './types';
+
 const PUSHPLUS_API = 'https://www.pushplus.plus/send';
 const WECOM_API = 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send';
 const WECOM_MAX_BYTES = 4096;
@@ -22,25 +26,41 @@ async function sendWeCom(key: string, content: string): Promise<boolean> {
   return true;
 }
 
+async function appendPushHistory(entry: PushHistoryEntry): Promise<void> {
+  try {
+    const file = CONFIG.PUSH_HISTORY_FILE;
+    let history: PushHistoryEntry[] = [];
+    try {
+      const raw = await fs.readFile(file, 'utf-8');
+      history = JSON.parse(raw);
+      if (!Array.isArray(history)) history = [];
+    } catch {
+      // 文件不存在或格式错误，使用空数组
+    }
+    history.push(entry);
+    await fs.mkdir(file.substring(0, file.lastIndexOf('/')), { recursive: true });
+    await fs.writeFile(file, JSON.stringify(history, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn(`[PushHistory] 写入失败: ${err}`);
+  }
+}
+
 /**
  * 按段落拆分内容，使每段不超过 maxBytes 字节。
  * 优先按 `\n## ` 章节标题分割，再按 `\n\n` 段落分割。
  */
 function splitContent(content: string, maxBytes: number): string[] {
-  // 尝试按二级标题分割
   function splitBy(delim: string): string[] {
     const parts: string[] = [];
     let remaining = content;
 
-    // 分隔符前的标题内容
     const delimIdx = remaining.indexOf(delim);
-    if (delimIdx < 0) return [content]; // 无此分隔符
+    if (delimIdx < 0) return [content];
 
     const intro = remaining.substring(0, delimIdx);
     remaining = remaining.substring(delimIdx);
     const raw = remaining.split(delim);
 
-    // 第一段包含 intro
     let buf = intro;
     for (let i = 0; i < raw.length; i++) {
       const seg = (i > 0 ? delim : '') + raw[i];
@@ -56,25 +76,20 @@ function splitContent(content: string, maxBytes: number): string[] {
   }
 
   const byHeading = splitBy('\n## ');
-  // 如果每段都已满足大小，直接返回
   if (byHeading.every(s => byteLength(s) <= maxBytes)) return byHeading;
 
-  // 仍有超长段，进一步按段落拆分
   const result: string[] = [];
   for (const segment of byHeading) {
     if (byteLength(segment) <= maxBytes) {
       result.push(segment);
     } else {
-      // 按双换行拆
       const paragraphs = segment.split('\n\n');
       let buf = '';
       for (const p of paragraphs) {
         const candidate = buf + (buf ? '\n\n' : '') + p;
         if (byteLength(candidate) > maxBytes) {
           if (buf) result.push(buf);
-          // 如果单个段落仍然超长，按行截断
           if (byteLength(p) > maxBytes) {
-            // 按字符截断到 maxBytes
             let lo = 0, hi = p.length;
             while (lo < hi) {
               const mid = (lo + hi + 1) >> 1;
@@ -106,13 +121,14 @@ export async function pushToWechat(title: string, content: string): Promise<void
       const fullContent = `${header}\n\n${content}`;
 
       if (byteLength(fullContent) <= WECOM_MAX_BYTES) {
-        // 单条发送
         if (await sendWeCom(wecomKey, fullContent)) {
           console.log('[WeCom] 推送成功');
+          await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: true });
           return;
+        } else {
+          await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: false, error: 'API 返回错误' });
         }
       } else {
-        // 分段发送
         const parts = splitContent(content, WECOM_MAX_BYTES - byteLength(header + '\n\n'));
         let sentCount = 0;
         for (let i = 0; i < parts.length; i++) {
@@ -121,17 +137,20 @@ export async function pushToWechat(title: string, content: string): Promise<void
           if (await sendWeCom(wecomKey, partContent)) {
             sentCount++;
           }
-          // 避免发送过快
           if (i < parts.length - 1) await new Promise(r => setTimeout(r, 500));
         }
         if (sentCount === parts.length) {
           console.log(`[WeCom] 推送成功 (共 ${sentCount} 段)`);
+          await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: true, segments: sentCount });
           return;
         }
+        await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: false, error: `${sentCount}/${parts.length} 段发送成功`, segments: parts.length });
         console.warn(`[WeCom] ${sentCount}/${parts.length} 段发送成功`);
       }
     } catch (e) {
-      console.warn(`[WeCom] 推送异常: ${e}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn(`[WeCom] 推送异常: ${msg}`);
+      await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'wecom', title, success: false, error: msg });
     }
   } else {
     console.log('[WeCom] 未配置 WECOM_WEBHOOK_KEY，跳过');
@@ -154,10 +173,14 @@ export async function pushToWechat(title: string, content: string): Promise<void
     const data = await res.json();
     if (data.code === 200) {
       console.log('[PushPlus] 推送成功');
+      await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'pushplus', title, success: true });
     } else {
       console.warn(`[PushPlus] 推送失败: ${data.msg || JSON.stringify(data)}`);
+      await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'pushplus', title, success: false, error: data.msg || JSON.stringify(data) });
     }
   } catch (e) {
-    console.warn(`[PushPlus] 推送异常: ${e}`);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[PushPlus] 推送异常: ${msg}`);
+    await appendPushHistory({ timestamp: new Date().toISOString(), channel: 'pushplus', title, success: false, error: msg });
   }
 }

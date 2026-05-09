@@ -1,9 +1,25 @@
 import { chromium, type Page } from 'playwright';
 import { CONFIG } from '../config';
 import type { ArxivPaper } from '../types';
+import type { HealthCheckResult } from '../types';
+import { withRetry } from '../utils/retry';
+import { checkUrlHealth } from '../utils/health';
 
 export class ArxivScraper {
   async scrape(): Promise<ArxivPaper[]> {
+    return withRetry(() => this.doScrape(), {
+      maxRetries: CONFIG.RETRY_MAX,
+      backoffMs: CONFIG.RETRY_BACKOFF_MS,
+      label: 'ArXiv',
+    });
+  }
+
+  async isHealthy(): Promise<HealthCheckResult> {
+    const result = await checkUrlHealth(CONFIG.ARXIV_CS_AI_RECENT, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
+    return { ...result, sourceName: 'ArXiv' };
+  }
+
+  private async doScrape(): Promise<ArxivPaper[]> {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage();
@@ -16,7 +32,6 @@ export class ArxivScraper {
         timeout: CONFIG.SCRAPE_TIMEOUT_MS,
       });
 
-      // 等待论文列表加载
       await page.waitForSelector('dl#articles', { timeout: 15000 });
 
       const papers = await this.extractPapers(page);
@@ -36,20 +51,16 @@ export class ArxivScraper {
         const dd = ddElements[i];
         if (!dd) return null;
 
-        // 提取论文 ID
         const idLink = dt.querySelector<HTMLAnchorElement>('a[title="Abstract"]');
         const paperId = idLink?.id || idLink?.href.replace('/abs/', '') || '';
 
-        // 提取标题
         const titleEl = dd.querySelector('.list-title');
         const title = titleEl?.textContent?.replace(/^Title:\s*/i, '').trim() || '';
 
-        // 提取作者
         const authorsEl = dd.querySelector('.list-authors');
         const authorsText = authorsEl?.textContent?.replace(/^Authors:\s*/i, '').trim() || '';
         const authors = authorsText.split(',').map((a) => a.trim()).filter(Boolean);
 
-        // 提取主题
         const subjectsEl = dd.querySelector('.list-subjects');
         const subjectsText = subjectsEl?.textContent?.replace(/^Subjects:\s*/i, '').trim() || '';
         const subjects = subjectsText.split(';').map((s) => s.trim()).filter(Boolean);

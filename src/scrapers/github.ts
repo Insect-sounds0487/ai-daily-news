@@ -1,15 +1,10 @@
 import { chromium } from 'playwright';
 import { CONFIG } from '../config';
 import type { GitHubRepo } from '../types';
+import type { HealthCheckResult } from '../types';
+import { withRetry } from '../utils/retry';
+import { checkUrlHealth } from '../utils/health';
 
-/**
- * GitHub Trending AI 相关仓库抓取器。
- *
- * 策略：
- * 1. 打开 GitHub Trending 页面（按日筛选）
- * 2. 提取所有仓库信息
- * 3. 按 topics 和描述中的 AI 关键词过滤
- */
 export class GitHubTrendingScraper {
   private aiTopics = [
     'ai', 'artificial-intelligence', 'machine-learning', 'deep-learning',
@@ -22,6 +17,19 @@ export class GitHubTrendingScraper {
   ];
 
   async scrape(): Promise<GitHubRepo[]> {
+    return withRetry(() => this.doScrape(), {
+      maxRetries: CONFIG.RETRY_MAX,
+      backoffMs: CONFIG.RETRY_BACKOFF_MS,
+      label: 'GitHub',
+    });
+  }
+
+  async isHealthy(): Promise<HealthCheckResult> {
+    const result = await checkUrlHealth(CONFIG.GITHUB_TRENDING, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
+    return { ...result, sourceName: 'GitHubTrending' };
+  }
+
+  private async doScrape(): Promise<GitHubRepo[]> {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage();
@@ -32,11 +40,10 @@ export class GitHubTrendingScraper {
 
       await page.goto(CONFIG.GITHUB_TRENDING, {
         waitUntil: 'domcontentloaded',
-        timeout: 60000,
+        timeout: CONFIG.SCRAPE_TIMEOUT_MS,
       });
 
-      // 等待仓库列表加载
-      await page.waitForSelector('article.Box-row', { timeout: 30000 });
+      await page.waitForSelector('article.Box-row', { timeout: CONFIG.SCRAPE_TIMEOUT_MS });
 
       const repos = await this.extractRepos(page);
       const filtered = repos.filter((r) => this.isAiRelated(r));
@@ -63,17 +70,14 @@ export class GitHubTrendingScraper {
         const langEl = row.querySelector('span[itemprop="programmingLanguage"]');
         const language = langEl?.textContent?.trim() || '';
 
-        // 今日 star 数
         const starEl = row.querySelector('.float-sm-right');
         const starsTodayText = starEl?.textContent?.trim() || '';
         const starsToday = parseInt(starsTodayText.replace(/[^0-9]/g, ''), 10) || 0;
 
-        // 总 star 数
         const totalStarEls = row.querySelectorAll('a.Link--muted');
         const totalStarsText = totalStarEls[0]?.textContent?.trim() || '0';
         const totalStars = parseInt(totalStarsText.replace(/,/g, ''), 10) || 0;
 
-        // topics
         const topicEls = row.querySelectorAll('a.topic-tag');
         const topics = Array.from(topicEls).map((t) => t.textContent?.trim() || '').filter(Boolean);
 
@@ -91,13 +95,11 @@ export class GitHubTrendingScraper {
   }
 
   private isAiRelated(repo: GitHubRepo): boolean {
-    // 检查 topics
     const hasAiTopic = repo.topics.some((t) =>
       this.aiTopics.includes(t.toLowerCase())
     );
     if (hasAiTopic) return true;
 
-    // 检查描述
     const desc = repo.description.toLowerCase();
     return this.aiTopics.some(
       (t) => desc.includes(t) || desc.includes(t.replace(/-/g, ' '))

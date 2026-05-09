@@ -1,5 +1,8 @@
 import { CONFIG } from '../config';
 import type { HNStory } from '../types';
+import type { HealthCheckResult } from '../types';
+import { withRetry } from '../utils/retry';
+import { checkUrlHealth } from '../utils/health';
 
 export class HackerNewsScraper {
   private baseUrl = CONFIG.HN_ITEM_BASE;
@@ -10,14 +13,23 @@ export class HackerNewsScraper {
   }
 
   async scrape(): Promise<HNStory[]> {
-    // 1. 获取 top stories ID 列表
+    return withRetry(() => this.doScrape(), {
+      maxRetries: CONFIG.RETRY_MAX,
+      backoffMs: CONFIG.RETRY_BACKOFF_MS,
+      label: 'HackerNews',
+    });
+  }
+
+  async isHealthy(): Promise<HealthCheckResult> {
+    const result = await checkUrlHealth(CONFIG.HN_TOP_STORIES, CONFIG.HEALTH_CHECK_TIMEOUT_MS);
+    return { ...result, sourceName: 'HackerNews' };
+  }
+
+  private async doScrape(): Promise<HNStory[]> {
     const topIds = await this.fetchTopStoryIds();
     const idsToFetch = topIds.slice(0, CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].hnFilterTop);
-
-    // 2. 并行抓取每个 story 详情（5 并发）
     const stories = await this.fetchStoriesBatch(idsToFetch, 5);
 
-    // 3. 按 AI 关键词过滤并按热度排序
     const filtered = stories
       .filter((s) => s !== null && this.isAiRelated(s.title))
       .sort((a, b) => b.score - a.score);
@@ -28,7 +40,7 @@ export class HackerNewsScraper {
   }
 
   private async fetchTopStoryIds(): Promise<number[]> {
-    const res = await fetch(CONFIG.HN_TOP_STORIES);
+    const res = await this.fetchWithTimeout(CONFIG.HN_TOP_STORIES);
     if (!res.ok) throw new Error(`HN API error: ${res.status}`);
     return res.json() as Promise<number[]>;
   }
@@ -46,11 +58,21 @@ export class HackerNewsScraper {
   }
 
   private async fetchStory(id: number): Promise<HNStory | null> {
-    const res = await fetch(`${this.baseUrl}/${id}.json`);
+    const res = await this.fetchWithTimeout(`${this.baseUrl}/${id}.json`);
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || data.type !== 'story') return null;
     return data as HNStory;
+  }
+
+  private async fetchWithTimeout(url: string, timeoutMs: number = CONFIG.SCRAPE_TIMEOUT_MS): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   private isAiRelated(title: string): boolean {

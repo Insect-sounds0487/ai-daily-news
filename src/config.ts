@@ -88,6 +88,16 @@ export const CONFIG = {
   RETRY_MAX: 3,
   RETRY_BACKOFF_MS: 2_000,
 
+  // --- 缓存/去重 ---
+  CACHE_FILE: path.resolve(__dirname, '../reports/.cache.json'),
+  DEDUP_WINDOW_DAYS: 7,
+
+  // --- 推送历史 ---
+  PUSH_HISTORY_FILE: path.resolve(__dirname, '../reports/push-history.json'),
+
+  // --- 健康检查 ---
+  HEALTH_CHECK_TIMEOUT_MS: 5_000,
+
   // --- Git ---
   GIT_AUTHOR_NAME: process.env.GIT_AUTHOR_NAME || 'AI News Bot',
   GIT_AUTHOR_EMAIL: process.env.GIT_AUTHOR_EMAIL || 'bot@ai-daily-news.local',

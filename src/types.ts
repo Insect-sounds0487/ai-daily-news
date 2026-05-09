@@ -66,3 +66,27 @@ export interface CLIOptions {
   skipPdf?: boolean;
   skipGit?: boolean;
 }
+
+// ========== 缓存/去重 ==========
+export interface CacheManifest {
+  entries: Record<string, string>; // key -> firstSeenDate (YYYY-MM-DD)
+}
+
+// ========== 推送历史 ==========
+export interface PushHistoryEntry {
+  timestamp: string;
+  channel: 'wecom' | 'pushplus';
+  title: string;
+  success: boolean;
+  segments?: number;
+  error?: string;
+}
+
+// ========== 健康检查 ==========
+export interface HealthCheckResult {
+  sourceName: string;
+  healthy: boolean;
+  latencyMs: number;
+  url: string;
+  error?: string;
+}
