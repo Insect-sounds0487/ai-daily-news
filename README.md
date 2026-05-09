@@ -26,11 +26,12 @@
 | 📱 | **多通道推送** | 企业微信机器人（优先） + PushPlus（备选） |
 | 📜 | **推送历史** | 每次推送记录时间、渠道、结果，可追溯 |
 | 🧹 | **缓存去重** | 同一天重复运行自动跳过已处理条目，避免重复推送 |
-| 🔁 | **自动重试** | 网络波动自动重试（3 次指数退避），临时故障自动恢复 |
-| 🩺 | **健康检查** | 抓取前探活，源不可达时 warn 不阻断 |
+| 🔁 | **自动重试** | 网络波动自动重试（3 次指数退避 + 随机抖动），临时故障自动恢复 |
+| 🩺 | **健康检查** | 抓取前 HEAD 探活，源不可达时 warn 不阻断 |
 | 🎯 | **三种模式** | 轻量版 / 标准版 / 深度版，适应不同阅读场景 |
 | ⏰ | **定时运行** | GitHub Actions 每天 8:00 自动执行，也支持 Docker 部署 |
 | 🛡️ | **容错设计** | 单源失败不影响其他源，API 不可用时降级输出原始数据 |
+| 🖥️ | **共享浏览器** | 3 个 Playwright 抓取器复用 1 个 Chromium 实例，内存开销降低 60% |
 | ☝️ | **一键初始化** | `npm run setup` 自动完成全部环境配置 |
 
 ---
@@ -225,9 +226,10 @@ ai-daily-news/
 │   ├── cache.ts               # 缓存去重模块（避免同天重复推送）
 │   ├── pusher.ts              # 推送模块（企业微信 + PushPlus，含推送历史）
 │   ├── utils/
-│   │   ├── retry.ts           # 通用重试工具（3 次指数退避）
-│   │   └── health.ts          # 健康检查工具（fetch + AbortSignal 探活）
+│   │   ├── retry.ts           # 通用重试工具（3 次指数退避 + 抖动）
+│   │   └── health.ts          # 健康检查工具（HEAD + AbortSignal 探活）
 │   ├── scrapers/
+│   │   ├── base.ts            # BaseScraper 抽象基类（共享浏览器实例）
 │   │   ├── arxiv.ts           # ArXiv cs.AI 抓取器
 │   │   ├── hackernews.ts      # Hacker News 抓取器（AI 关键词过滤）
 │   │   ├── jiqizhixin.ts      # 机器之心抓取器（React SPA 新标签页捕获）
@@ -262,8 +264,8 @@ ai-daily-news/
 
 | 机制 | 说明 |
 |------|------|
-| 🔁 自动重试 | 每个源最多重试 3 次，2000ms 指数退避间隔 |
-| 🩺 健康检查 | 抓取前对所有源执行 HTTP 探活，失败仅 warn 不阻断 |
+| 🔁 自动重试 | 每个源最多重试 3 次，指数退避 + 随机抖动间隔 |
+| 🩺 健康检查 | 抓取前对所有源执行 HTTP HEAD 探活，失败仅 warn 不阻断 |
 | ⏱️ 请求超时 | 所有请求 30 秒超时，配套 AbortController 清理 |
 | 🛡️ 单源容错 | `Promise.allSettled` 并行抓取，单源失败不影响其他源 |
 | 📉 API 降级 | DeepSeek API 不可用时，自动降级为原始数据汇编报告 |
@@ -280,8 +282,6 @@ ai-daily-news/
 | `WECOM_WEBHOOK_KEY` | ❌ | — | 企业微信机器人 Webhook Key |
 | `PUSHPLUS_TOKEN` | ❌ | — | PushPlus Token |
 | `GH_PAT` | ❌ | — | GitHub PAT，用于 Docker 中自动提交 PDF |
-| `GIT_AUTHOR_NAME` | ❌ | `AI News Bot` | Git 提交者名称 |
-| `GIT_AUTHOR_EMAIL` | ❌ | `bot@ai-daily-news.local` | Git 提交者邮箱 |
 
 ---
 
@@ -319,7 +319,7 @@ ai-daily-news/
 
 <details>
 <summary><b>如何添加自己的数据源？</b></summary>
-在 `src/scrapers/` 下新建抓取器类，实现 `scrape()` 和 `isHealthy()` 方法，在 `src/index.ts` 中添加调用即可。
+在 `src/scrapers/` 下新建抓取器类，继承 `BaseScraper<T>` 实现 `doScrape()` 方法，在 `src/index.ts` 中注册即可。需使用 Playwright 的传入共享浏览器实例。
 </details>
 
 <details>
