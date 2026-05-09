@@ -1,0 +1,45 @@
+name: AI日报自动生成
+
+on:
+  schedule:
+    # 北京时间每天 8:00 = UTC 0:00
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '日报模式: light / standard / deep'
+        required: false
+        default: 'standard'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装 Playwright 浏览器
+        run: npx playwright install chromium
+
+      - name: 生成日报
+        run: npm run dev${{ github.event.inputs.mode && format(' -- --mode={0}', github.event.inputs.mode) || '' }}
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+
+      - name: 提日报 PDF 到仓库
+        run: |
+          git config user.name "AI News Bot"
+          git config user.email "bot@ai-daily-news.local"
+          git add reports/
+          git commit -m "[AI日报] $(date '+%Y-%m-%d')" || echo "无新文件"
+          git push
