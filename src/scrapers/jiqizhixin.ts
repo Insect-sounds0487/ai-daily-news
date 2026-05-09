@@ -1,13 +1,13 @@
 import { chromium, type Page, type BrowserContext } from 'playwright';
-import { CONFIG } from '../config';
+import { CONFIG, type ReportMode } from '../config';
 import type { JiqizhixinArticle } from '../types';
 import type { HealthCheckResult } from '../types';
 import { withRetry } from '../utils/retry';
 import { checkUrlHealth } from '../utils/health';
 
 export class JiqizhixinScraper {
-  async scrape(): Promise<JiqizhixinArticle[]> {
-    return withRetry(() => this.doScrape(), {
+  async scrape(mode?: ReportMode): Promise<JiqizhixinArticle[]> {
+    return withRetry(() => this.doScrape(mode), {
       maxRetries: CONFIG.RETRY_MAX,
       backoffMs: CONFIG.RETRY_BACKOFF_MS,
       label: '机器之心',
@@ -19,7 +19,7 @@ export class JiqizhixinScraper {
     return { ...result, sourceName: '机器之心' };
   }
 
-  private async doScrape(): Promise<JiqizhixinArticle[]> {
+  private async doScrape(mode?: ReportMode): Promise<JiqizhixinArticle[]> {
     const browser = await chromium.launch({ headless: true });
     try {
       const context = await browser.newContext({
@@ -37,9 +37,10 @@ export class JiqizhixinScraper {
       await page.waitForSelector('.home__article-item', { timeout: 15000 });
       await page.waitForTimeout(2000);
 
+      const effectiveMode = mode || CONFIG.REPORT_MODE;
       const articles = await this.extractArticles(page);
-      const maxArticles = CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].jqxMax;
-      const clickCount = CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].jqxClickUrls;
+      const maxArticles = CONFIG.MODE_PARAMS[effectiveMode].jqxMax;
+      const clickCount = CONFIG.MODE_PARAMS[effectiveMode].jqxClickUrls;
 
       const urls = await this.captureArticleUrls(context, page, Math.min(clickCount, articles.length));
 

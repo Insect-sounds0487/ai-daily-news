@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { CONFIG } from '../config';
+import { CONFIG, type ReportMode } from '../config';
 import type { GitHubRepo } from '../types';
 import type { HealthCheckResult } from '../types';
 import { withRetry } from '../utils/retry';
@@ -16,8 +16,8 @@ export class GitHubTrendingScraper {
     'fine-tuning', 'openai', 'data-science',
   ];
 
-  async scrape(): Promise<GitHubRepo[]> {
-    return withRetry(() => this.doScrape(), {
+  async scrape(mode?: ReportMode): Promise<GitHubRepo[]> {
+    return withRetry(() => this.doScrape(mode), {
       maxRetries: CONFIG.RETRY_MAX,
       backoffMs: CONFIG.RETRY_BACKOFF_MS,
       label: 'GitHub',
@@ -29,7 +29,7 @@ export class GitHubTrendingScraper {
     return { ...result, sourceName: 'GitHubTrending' };
   }
 
-  private async doScrape(): Promise<GitHubRepo[]> {
+  private async doScrape(mode?: ReportMode): Promise<GitHubRepo[]> {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage();
@@ -48,7 +48,8 @@ export class GitHubTrendingScraper {
       const repos = await this.extractRepos(page);
       const filtered = repos.filter((r) => this.isAiRelated(r));
 
-      const max = CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].githubTrendMax;
+      const effectiveMode = mode || CONFIG.REPORT_MODE;
+      const max = CONFIG.MODE_PARAMS[effectiveMode].githubTrendMax;
       const result = filtered.slice(0, max);
       console.log(`[GitHub] 抓取到 ${result.length} 个 AI 相关仓库（共 ${repos.length} 个）`);
       return result;

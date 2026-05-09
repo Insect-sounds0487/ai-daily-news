@@ -13,7 +13,7 @@ import type { HealthCheckResult } from './types';
 import fs from 'fs/promises';
 import path from 'path';
 
-function parseArgs(): { mode: ReportMode; skipScrape: boolean; skipPdf: boolean; skipGit: boolean } {
+function parseArgs(): { mode: ReportMode; skipScrape: boolean; skipPdf: boolean } {
   const args = process.argv.slice(2);
   const modeArg = args.find(a => a.startsWith('--mode='));
   const mode = modeArg ? modeArg.split('=')[1] as ReportMode : CONFIG.REPORT_MODE;
@@ -21,7 +21,6 @@ function parseArgs(): { mode: ReportMode; skipScrape: boolean; skipPdf: boolean;
     mode: REPORT_MODES.includes(mode) ? mode : 'standard',
     skipScrape: args.includes('--skip-scrape'),
     skipPdf: args.includes('--skip-pdf'),
-    skipGit: args.includes('--skip-git'),
   };
 }
 
@@ -60,10 +59,10 @@ async function main() {
     console.log('\n--- 阶段 1/3: 数据抓取 ---');
 
     const scrapeResults = await Promise.allSettled([
-      new ArxivScraper().scrape().then((r) => { arxivPapers = r; }),
-      new HackerNewsScraper().scrape().then((r) => { hnStories = r; }),
-      new JiqizhixinScraper().scrape().then((r) => { jqxArticles = r; }),
-      new GitHubTrendingScraper().scrape().then((r) => { githubRepos = r; }),
+      new ArxivScraper().scrape(mode).then((r) => { arxivPapers = r; }),
+      new HackerNewsScraper().scrape(mode).then((r) => { hnStories = r; }),
+      new JiqizhixinScraper().scrape(mode).then((r) => { jqxArticles = r; }),
+      new GitHubTrendingScraper().scrape(mode).then((r) => { githubRepos = r; }),
     ]);
 
     const failures = scrapeResults.filter((r) => r.status === 'rejected');

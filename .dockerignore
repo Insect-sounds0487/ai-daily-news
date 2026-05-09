@@ -1,0 +1,11 @@
+node_modules/
+.env
+reports/
+.git
+*.md
+*.txt
+*.log
+fonts/
+ms-playwright/
+.playwright-mcp/
+scripts/

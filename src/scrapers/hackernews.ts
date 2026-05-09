@@ -1,4 +1,4 @@
-import { CONFIG } from '../config';
+import { CONFIG, type ReportMode } from '../config';
 import type { HNStory } from '../types';
 import type { HealthCheckResult } from '../types';
 import { withRetry } from '../utils/retry';
@@ -12,8 +12,8 @@ export class HackerNewsScraper {
     this.keywords = CONFIG.HN_AI_KEYWORDS.map((k) => k.toLowerCase());
   }
 
-  async scrape(): Promise<HNStory[]> {
-    return withRetry(() => this.doScrape(), {
+  async scrape(mode?: ReportMode): Promise<HNStory[]> {
+    return withRetry(() => this.doScrape(mode), {
       maxRetries: CONFIG.RETRY_MAX,
       backoffMs: CONFIG.RETRY_BACKOFF_MS,
       label: 'HackerNews',
@@ -25,16 +25,17 @@ export class HackerNewsScraper {
     return { ...result, sourceName: 'HackerNews' };
   }
 
-  private async doScrape(): Promise<HNStory[]> {
+  private async doScrape(mode?: ReportMode): Promise<HNStory[]> {
+    const effectiveMode = mode || CONFIG.REPORT_MODE;
     const topIds = await this.fetchTopStoryIds();
-    const idsToFetch = topIds.slice(0, CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].hnFilterTop);
+    const idsToFetch = topIds.slice(0, CONFIG.MODE_PARAMS[effectiveMode].hnFilterTop);
     const stories = await this.fetchStoriesBatch(idsToFetch, 5);
 
     const filtered = stories
       .filter((s) => s !== null && this.isAiRelated(s.title))
       .sort((a, b) => b.score - a.score);
 
-    const result = filtered.slice(0, CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].hnMax);
+    const result = filtered.slice(0, CONFIG.MODE_PARAMS[effectiveMode].hnMax);
     console.log(`[HackerNews] 抓取到 ${result.length} 篇 AI 相关文章（原始 ${idsToFetch.length} 篇中过滤）`);
     return result;
   }

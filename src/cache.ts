@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { CacheManifest } from './types';
 import type { ArxivPaper, HNStory, JiqizhixinArticle, GitHubRepo } from './types';
 
@@ -29,7 +30,7 @@ export async function saveCache(
       if (date < cutoffStr) delete cache.entries[key];
     }
 
-    const dir = filePath.substring(0, filePath.lastIndexOf('/'));
+    const dir = path.dirname(filePath);
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(filePath, JSON.stringify(cache), 'utf-8');
   } catch (err) {
@@ -68,9 +69,7 @@ export function dedupItems<T extends ArxivPaper | HNStory | JiqizhixinArticle | 
     const key = getDedupKey(item, source);
     const seenDate = cache.entries[key];
     if (seenDate === today) continue; // 今天已处理过，跳过
-    if (!seenDate) {
-      cache.entries[key] = today; // 首次见到，记录
-    }
+    cache.entries[key] = today; // 更新/记录为今日已处理
     fresh.push(item);
   }
 

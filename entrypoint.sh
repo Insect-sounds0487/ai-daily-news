@@ -19,6 +19,10 @@ mkdir -p reports
 # 如果是 Git 仓库，拉取最新代码
 if [ -d .git ]; then
   echo "[Git] 拉取最新代码..."
+  # 注入 GH_PAT 凭据（如有配置）
+  if [ -n "$GH_PAT" ]; then
+    git remote set-url origin "https://git:${GH_PAT}@github.com/Insect-sounds0487/ai-daily-news.git" 2>/dev/null || true
+  fi
   git pull origin main 2>/dev/null || echo "[Git] 无远程配置，跳过拉取"
 fi
 

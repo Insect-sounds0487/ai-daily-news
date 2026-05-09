@@ -1,13 +1,13 @@
 import { chromium, type Page } from 'playwright';
-import { CONFIG } from '../config';
+import { CONFIG, type ReportMode } from '../config';
 import type { ArxivPaper } from '../types';
 import type { HealthCheckResult } from '../types';
 import { withRetry } from '../utils/retry';
 import { checkUrlHealth } from '../utils/health';
 
 export class ArxivScraper {
-  async scrape(): Promise<ArxivPaper[]> {
-    return withRetry(() => this.doScrape(), {
+  async scrape(mode?: ReportMode): Promise<ArxivPaper[]> {
+    return withRetry(() => this.doScrape(mode), {
       maxRetries: CONFIG.RETRY_MAX,
       backoffMs: CONFIG.RETRY_BACKOFF_MS,
       label: 'ArXiv',
@@ -19,7 +19,7 @@ export class ArxivScraper {
     return { ...result, sourceName: 'ArXiv' };
   }
 
-  private async doScrape(): Promise<ArxivPaper[]> {
+  private async doScrape(mode?: ReportMode): Promise<ArxivPaper[]> {
     const browser = await chromium.launch({ headless: true });
     try {
       const page = await browser.newPage();
@@ -36,7 +36,8 @@ export class ArxivScraper {
 
       const papers = await this.extractPapers(page);
       console.log(`[ArXiv] 抓取到 ${papers.length} 篇论文`);
-      return papers.slice(0, CONFIG.MODE_PARAMS[CONFIG.REPORT_MODE].arxivMax);
+      const effectiveMode = mode || CONFIG.REPORT_MODE;
+      return papers.slice(0, CONFIG.MODE_PARAMS[effectiveMode].arxivMax);
     } finally {
       await browser.close();
     }

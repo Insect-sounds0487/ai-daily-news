@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { CONFIG } from './config';
 import type { PushHistoryEntry } from './types';
 
@@ -38,7 +39,7 @@ async function appendPushHistory(entry: PushHistoryEntry): Promise<void> {
       // 文件不存在或格式错误，使用空数组
     }
     history.push(entry);
-    await fs.mkdir(file.substring(0, file.lastIndexOf('/')), { recursive: true });
+    await fs.mkdir(path.dirname(file), { recursive: true });
     await fs.writeFile(file, JSON.stringify(history, null, 2), 'utf-8');
   } catch (err) {
     console.warn(`[PushHistory] 写入失败: ${err}`);

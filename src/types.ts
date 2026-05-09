@@ -59,14 +59,6 @@ export interface DailyReport {
   };
 }
 
-// ========== CLI 参数 ==========
-export interface CLIOptions {
-  mode?: 'light' | 'standard' | 'deep';
-  skipScrape?: boolean;
-  skipPdf?: boolean;
-  skipGit?: boolean;
-}
-
 // ========== 缓存/去重 ==========
 export interface CacheManifest {
   entries: Record<string, string>; // key -> firstSeenDate (YYYY-MM-DD)
